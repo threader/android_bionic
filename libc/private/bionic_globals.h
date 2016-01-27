@@ -45,6 +45,8 @@ struct libc_globals {
   vdso_entry vdso[VDSO_END];
   long setjmp_cookie;
 
+  long dtor_cookie;
+
   // In order to allow a complete switch between dispatch tables without
   // the need for copying each function by function in the structure,
   // use a single atomic pointer to switch.
