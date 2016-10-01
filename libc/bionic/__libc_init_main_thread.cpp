@@ -28,6 +28,9 @@
 
 #include "libc_init_common.h"
 
+#include <limits.h>
+#include <sys/mman.h>
+
 #include <async_safe/log.h>
 
 #include "private/KernelArgumentBlock.h"
@@ -35,14 +38,14 @@
 #include "private/bionic_defs.h"
 #include "private/bionic_elf_tls.h"
 #include "private/bionic_globals.h"
-#include "private/bionic_ssp.h"
 #include "pthread_internal.h"
 
 extern "C" pid_t __getpid();
 extern "C" int __set_tid_address(int* tid_address);
 
 // Declared in "private/bionic_ssp.h".
-uintptr_t __stack_chk_guard = 0;
+__attribute__((aligned(PAGE_SIZE)))
+uintptr_t __stack_chk_guard[PAGE_SIZE / sizeof(uintptr_t)] = {0};
 
 static pthread_internal_t main_thread;
 
@@ -78,6 +81,43 @@ extern "C" void __libc_init_main_thread_early(const KernelArgumentBlock& args,
   __set_tls(&temp_tcb->tls_slot(0));
   main_thread.tid = __getpid();
   main_thread.set_cached_pid(main_thread.tid);
+  main_thread.stack_top = reinterpret_cast<uintptr_t>(args.argv);
+}
+
+// This code is used both by each new pthread and the code that initializes the main thread.
+void __init_tcb(bionic_tcb* tcb, pthread_internal_t* thread) {
+#ifdef TLS_SLOT_SELF
+  // On x86, slot 0 must point to itself so code can read the thread pointer by
+  // loading %fs:0 or %gs:0.
+  tcb->tls_slot(TLS_SLOT_SELF) = &tcb->tls_slot(TLS_SLOT_SELF);
+#endif
+  tcb->tls_slot(TLS_SLOT_THREAD_ID) = thread;
+}
+
+void __init_tcb_dtv(bionic_tcb* tcb) {
+  // Initialize the DTV slot to a statically-allocated empty DTV. The first
+  // access to a dynamic TLS variable allocates a new DTV.
+  static const TlsDtv zero_dtv = {};
+  __set_tcb_dtv(tcb, const_cast<TlsDtv*>(&zero_dtv));
+}
+
+// This is public so that the zygote can call it too. It is not expected
+// to be useful otherwise.
+//
+// Note in particular that it is not possible to return from any existing
+// stack frame with stack protector enabled after this function is called.
+extern "C" void android_reset_stack_guards() {
+  if (mprotect(__stack_chk_guard, sizeof(__stack_chk_guard), PROT_READ|PROT_WRITE) == -1) {
+    async_safe_fatal("mprotect __stack_chk_guard: %s", strerror(errno));
+  }
+  // The TLS stack guard is set from the global, so ensure that we've initialized the global
+  // before we initialize the TLS. Dynamic executables will initialize their copy of the global
+  // stack protector from the one in the main thread's TLS.
+  __libc_safe_arc4random_buf(&__stack_chk_guard[0], sizeof(__stack_chk_guard[0]));
+  if (mprotect(__stack_chk_guard, sizeof(__stack_chk_guard), PROT_READ) == -1) {
+    async_safe_fatal("mprotect __stack_chk_guard: %s", strerror(errno));
+  }
+  __init_tcb_stack_guard(__get_bionic_tcb());
 }
 
 // Finish initializing the main thread.
