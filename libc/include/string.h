@@ -58,8 +58,16 @@ void* memmove(void* __dst, const void* __src, size_t __n);
 void* memset(void* __dst, int __ch, size_t __n);
 void* memmem(const void* __haystack, size_t __haystack_size, const void* __needle, size_t __needle_size) __attribute_pure__;
 
-char* strchr(const char* __s, int __ch) __attribute_pure__;
-char* __strchr_chk(const char* __s, int __ch, size_t __n) __INTRODUCED_IN(18);
+/**
+ * [memset_explicit(3)](http://man7.org/linux/man-pages/man3/memset_explicit.3.html)
+ * writes the bottom 8 bits of the given int to the next `n` bytes of `dst`,
+ * but won't be optimized out by the compiler.
+ *
+ * Returns `dst`.
+ */
+void* _Nonnull memset_explicit(void* _Nonnull __dst, int __ch, size_t __n) __INTRODUCED_IN(34);
+
+
 #if defined(__USE_GNU)
 #if defined(__cplusplus)
 extern "C++" char* strchrnul(char* __s, int __ch) __RENAME(strchrnul) __attribute_pure__ __INTRODUCED_IN(24);
