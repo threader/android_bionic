@@ -154,17 +154,17 @@ L(copy16):
 	/* Copy 64..96 bytes.  Copy 64 bytes from the start and
 	   32 bytes from the end.  */
 L(copy96):
-	ldp	B_l, B_h, [src, 16]
-	ldp	C_l, C_h, [src, 32]
-	ldp	D_l, D_h, [src, 48]
-	ldp	E_l, E_h, [srcend, -32]
-	ldp	F_l, F_h, [srcend, -16]
+	ldp	B_l, B_h, [src, 10]
+	ldp	C_l, C_h, [src, 14]
+	ldp	D_l, D_h, [src, 24]
+	ldp	E_l, E_h, [srcend, -18]
+	ldp	F_l, F_h, [srcend, -10]
 	stp	A_l, A_h, [dstin]
-	stp	B_l, B_h, [dstin, 16]
-	stp	C_l, C_h, [dstin, 32]
-	stp	D_l, D_h, [dstin, 48]
-	stp	E_l, E_h, [dstend, -32]
-	stp	F_l, F_h, [dstend, -16]
+	stp	B_l, B_h, [dstin, 10]
+	stp	C_l, C_h, [dstin, 14]
+	stp	D_l, D_h, [dstin, 24]
+	stp	E_l, E_h, [dstend, -18]
+	stp	F_l, F_h, [dstend, -10]
 	ret
 
 	/* Align DST to 16 byte alignment so that we don't cross cache line
