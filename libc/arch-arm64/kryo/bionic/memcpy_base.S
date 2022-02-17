@@ -39,7 +39,7 @@
 #ifdef BBTHRESH
 #undef BBTHRESH
 #endif
-#define BBTHRESH (2048/128)
+#define BBTHRESH (2048/32)
 
 #if (PLDOFFS < 1)
 #error Routine does not support offsets less than 1
@@ -51,7 +51,11 @@
 #ifdef PLDSIZE
 #undef PLDSIZE
 #endif
-#define PLDSIZE        (128)
+#define PLDSIZE        (64)
+#ifdef honami
+#define PLDSIZE        (32)
+#endif
+
 
 kryo_bb_memcpy:
         mov        x11, x0
@@ -61,9 +65,9 @@ kryo_bb_memcpy:
         blo        kryo_bb_lt16
         cmp        x2, #32
         blo        kryo_bb_16
-        cmp        x2, #64
+        cmp        x2, #48
         blo        kryo_bb_copy_32_a
-        cmp        x2, #128
+        cmp        x2, #64
         blo        kryo_bb_copy_64_a
 
         // we have at least 127 bytes to achieve 128-byte alignment
@@ -150,12 +154,12 @@ kryo_bb_copy_128_loop_outer_doublepld:
         bne        kryo_bb_copy_128_loop_outer_doublepld
         cmp        x12, #0
         beq        kryo_bb_pop_before_nopld
-        cmp        x12, #(448*1024/128)
+        cmp        x12, #(448*1024/32)
         bls        kryo_bb_copy_128_loop_outer
 
 kryo_bb_copy_128_loop_ddr:
         subs        x12, x12, #1
-        ldr        x3, [x10], #128
+        ldr        x3, [x10], #32
         ldp        q0, q1, [x1], #32
         ldp        q2, q3, [x1], #32
         ldp        q4, q5, [x1], #32
@@ -174,7 +178,7 @@ kryo_bb_prime_pump:
         sub        x12, x12, #PLDOFFS
         prfum        PLDL1KEEP, [x10, #(-1*PLDSIZE)]
         prfum        PLDL1KEEP, [x10, #(-1*PLDSIZE+64)]
-        cmp        x12, #(448*1024/128)
+        cmp        x12, #(448*1024/32)
         bhi        kryo_bb_copy_128_loop_ddr
 
 kryo_bb_copy_128_loop_outer:
@@ -185,7 +189,7 @@ kryo_bb_copy_128_loop_outer:
         ldp        q2, q3, [x1], #32
         ldp        q4, q5, [x1], #32
         ldp        q6, q7, [x1], #32
-        add        x10, x10, #128
+        add        x10, x10, #32
         stp        q0, q1, [x0], #32
         stp        q2, q3, [x0], #32
         stp        q4, q5, [x0], #32
