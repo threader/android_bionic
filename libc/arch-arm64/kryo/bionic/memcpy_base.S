@@ -39,7 +39,7 @@
 #ifdef BBTHRESH
 #undef BBTHRESH
 #endif
-#define BBTHRESH (2048/32)
+#define BBTHRESH (2048/64)
 
 #if (PLDOFFS < 1)
 #error Routine does not support offsets less than 1
@@ -154,12 +154,12 @@ kryo_bb_copy_128_loop_outer_doublepld:
         bne        kryo_bb_copy_128_loop_outer_doublepld
         cmp        x12, #0
         beq        kryo_bb_pop_before_nopld
-        cmp        x12, #(448*1024/32)
+        cmp        x12, #(448*1024/64)
         bls        kryo_bb_copy_128_loop_outer
 
 kryo_bb_copy_128_loop_ddr:
         subs        x12, x12, #1
-        ldr        x3, [x10], #32
+        ldr        x3, [x10], #64
         ldp        q0, q1, [x1], #32
         ldp        q2, q3, [x1], #32
         ldp        q4, q5, [x1], #32
@@ -178,7 +178,7 @@ kryo_bb_prime_pump:
         sub        x12, x12, #PLDOFFS
         prfum        PLDL1KEEP, [x10, #(-1*PLDSIZE)]
         prfum        PLDL1KEEP, [x10, #(-1*PLDSIZE+64)]
-        cmp        x12, #(448*1024/32)
+        cmp        x12, #(448*1024/64)
         bhi        kryo_bb_copy_128_loop_ddr
 
 kryo_bb_copy_128_loop_outer:
@@ -189,7 +189,7 @@ kryo_bb_copy_128_loop_outer:
         ldp        q2, q3, [x1], #32
         ldp        q4, q5, [x1], #32
         ldp        q6, q7, [x1], #32
-        add        x10, x10, #32
+        add        x10, x10, #64
         stp        q0, q1, [x0], #32
         stp        q2, q3, [x0], #32
         stp        q4, q5, [x0], #32

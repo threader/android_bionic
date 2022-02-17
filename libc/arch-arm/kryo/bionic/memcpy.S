@@ -31,7 +31,7 @@
 #include <private/bionic_asm.h>
 
 #define PLDOFFS (16)
-#define PLDSIZE (128) /* L2 cache line size */
+#define PLDSIZE (64) /* L2 cache line size */
 
         .syntax unified
 

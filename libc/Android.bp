@@ -775,7 +775,8 @@ cc_library_static {
             srcs: [
                 "arch-arm64/generic/bionic/__memcpy_chk.S",
             ],
-            kryo: {
+            krait: {
+# kyro: {
                 srcs: [
                     "arch-arm64/kryo/bionic/__memcpy_chk.S",
                 ],
@@ -897,7 +898,8 @@ cc_library_static {
                 "bionic/strchr.cpp",
                 "bionic/strnlen.c",
             ],
-            kryo: {
+          krait: { 
+#  kryo: {
                 srcs: [
                     "arch-arm64/kryo/bionic/__memcpy.S",
                     "arch-arm64/kryo/bionic/memcpy.S",
