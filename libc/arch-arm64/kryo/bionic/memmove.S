@@ -90,7 +90,7 @@ ENTRY(wmemmove)
 ENTRY(memmove)
 #endif
 	sub	tmp1, dstin, src
-	cmp	count, 96
+	cmp	count, 48
 	ccmp	tmp1, count, 2, hi
 	b.hs	__memcpy
 
@@ -104,45 +104,45 @@ ENTRY(memmove)
 	   copies 64 bytes per iteration and prefetches one iteration ahead.  */
 
 	and	tmp1, dstend, 15
-	ldp	D_l, D_h, [srcend, -16]
+	ldp	D_l, D_h, [srcend, -8]
 	sub	srcend, srcend, tmp1
 	sub	count, count, tmp1
-	ldp	A_l, A_h, [srcend, -16]
-	stp	D_l, D_h, [dstend, -16]
-	ldp	B_l, B_h, [srcend, -32]
-	ldp	C_l, C_h, [srcend, -48]
-	ldp	D_l, D_h, [srcend, -64]!
+	ldp	A_l, A_h, [srcend, -8]
+	stp	D_l, D_h, [dstend, -8]
+	ldp	B_l, B_h, [srcend, -16]
+	ldp	C_l, C_h, [srcend, -24]
+	ldp	D_l, D_h, [srcend, -32]!
 	sub	dstend, dstend, tmp1
-	subs	count, count, 128
+	subs	count, count, 64
 	b.ls	2f
 	nop
 1:
-	stp	A_l, A_h, [dstend, -16]
-	ldp	A_l, A_h, [srcend, -16]
-	stp	B_l, B_h, [dstend, -32]
-	ldp	B_l, B_h, [srcend, -32]
-	stp	C_l, C_h, [dstend, -48]
-	ldp	C_l, C_h, [srcend, -48]
-	stp	D_l, D_h, [dstend, -64]!
-	ldp	D_l, D_h, [srcend, -64]!
-	subs	count, count, 64
+	stp	A_l, A_h, [dstend, -8]
+	ldp	A_l, A_h, [srcend, -8]
+	stp	B_l, B_h, [dstend, -16]
+	ldp	B_l, B_h, [srcend, -16]
+	stp	C_l, C_h, [dstend, -24]
+	ldp	C_l, C_h, [srcend, -24]
+	stp	D_l, D_h, [dstend, -32]!
+	ldp	D_l, D_h, [srcend, -32]!
+	subs	count, count, 32
 	b.hi	1b
 
 	/* Write the last full set of 64 bytes.	 The remainder is at most 64
 	   bytes, so it is safe to always copy 64 bytes from the start even if
 	   there is just 1 byte left.  */
 2:
-	ldp	E_l, E_h, [src, 48]
-	stp	A_l, A_h, [dstend, -16]
-	ldp	A_l, A_h, [src, 32]
-	stp	B_l, B_h, [dstend, -32]
-	ldp	B_l, B_h, [src, 16]
-	stp	C_l, C_h, [dstend, -48]
+	ldp	E_l, E_h, [src, 24]
+	stp	A_l, A_h, [dstend, -8]
+	ldp	A_l, A_h, [src, 16]
+	stp	B_l, B_h, [dstend, -16]
+	ldp	B_l, B_h, [src, 8]
+	stp	C_l, C_h, [dstend, -24]
 	ldp	C_l, C_h, [src]
-	stp	D_l, D_h, [dstend, -64]
-	stp	E_l, E_h, [dstin, 48]
-	stp	A_l, A_h, [dstin, 32]
-	stp	B_l, B_h, [dstin, 16]
+	stp	D_l, D_h, [dstend, -32]
+	stp	E_l, E_h, [dstin, 24]
+	stp	A_l, A_h, [dstin, 16]
+	stp	B_l, B_h, [dstin, 8]
 	stp	C_l, C_h, [dstin]
 3:	ret
 

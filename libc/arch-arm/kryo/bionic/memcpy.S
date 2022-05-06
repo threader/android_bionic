@@ -31,7 +31,7 @@
 #include <private/bionic_asm.h>
 
 #define PLDOFFS (16)
-#define PLDSIZE (128) /* L2 cache line size */
+#define PLDSIZE (64) /* L2 cache line size */
 
         .syntax unified
 
@@ -50,7 +50,7 @@ ENTRY(__memcpy_kryo)
         blt             .Lneon_lt16
         cmp             r2, #32
         blt             .Lneon_16
-        cmp              r2, #128
+        cmp              r2, #64
         blt              .Lneon_copy_32_a
         /* Copy blocks of 128-bytes (word-aligned) at a time*/
         /* Code below is optimized for PLDSIZE=128 only */
@@ -61,30 +61,22 @@ ENTRY(__memcpy_kryo)
         pld             [r1, #(PLDOFFS-1)*PLDSIZE]
 .Lneon_copy_128_loop_outer:
         pld             [r1, #(PLDOFFS*PLDSIZE)]
-        pld             [r1, #(PLDOFFS)*(PLDSIZE)+64]
+        pld             [r1, #(PLDOFFS)*(PLDSIZE)+32]
         vld1.32         {q0, q1}, [r1]!
         vld1.32         {q2, q3}, [r1]!
-        vld1.32         {q8, q9}, [r1]!
-        vld1.32         {q10, q11}, [r1]!
         subs            r12, r12, #1
         vst1.32         {q0, q1}, [r0]!
         vst1.32         {q2, q3}, [r0]!
-        vst1.32         {q8, q9}, [r0]!
-        vst1.32         {q10, q11}, [r0]!
         bne             .Lneon_copy_128_loop_outer
         mov             r12, #PLDOFFS
 .Lneon_copy_128_loop_nopld:
         vld1.32         {q0, q1}, [r1]!
         vld1.32         {q2, q3}, [r1]!
-        vld1.32         {q8, q9}, [r1]!
-        vld1.32         {q10, q11}, [r1]!
         subs            r12, r12, #1
         vst1.32         {q0, q1}, [r0]!
         vst1.32         {q2, q3}, [r0]!
-        vst1.32         {q8, q9}, [r0]!
-        vst1.32         {q10, q11}, [r0]!
         bne             .Lneon_copy_128_loop_nopld
-        ands            r2, r2, #0x7f
+        ands            r2, r2, #0x3f
         beq             .Lneon_exit
         cmp             r2, #32
         blt             .Lneon_16

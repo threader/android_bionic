@@ -99,22 +99,22 @@
 	add	dstend, dstin, count
         cmp     count, 16
         b.ls    L(copy16)
-	cmp	count, 96
+	cmp	count, 48
 	b.hi	L(copy_long)
 
 	/* Medium copies: 17..96 bytes.  */
 	sub	tmp1, count, 1
 	ldp	A_l, A_h, [src]
 	tbnz	tmp1, 6, L(copy96)
-	ldp	D_l, D_h, [srcend, -16]
+	ldp	D_l, D_h, [srcend, -8]
 	tbz	tmp1, 5, 1f
-	ldp	B_l, B_h, [src, 16]
-	ldp	C_l, C_h, [srcend, -32]
-	stp	B_l, B_h, [dstin, 16]
-	stp	C_l, C_h, [dstend, -32]
+	ldp	B_l, B_h, [src, 8]
+	ldp	C_l, C_h, [srcend, -16]
+	stp	B_l, B_h, [dstin, 8]
+	stp	C_l, C_h, [dstend, -16]
 1:
 	stp	A_l, A_h, [dstin]
-	stp	D_l, D_h, [dstend, -16]
+	stp	D_l, D_h, [dstend, -8]
 	ret
 
 	.p2align 4
@@ -154,17 +154,17 @@ L(copy16):
 	/* Copy 64..96 bytes.  Copy 64 bytes from the start and
 	   32 bytes from the end.  */
 L(copy96):
-	ldp	B_l, B_h, [src, 16]
-	ldp	C_l, C_h, [src, 32]
-	ldp	D_l, D_h, [src, 48]
-	ldp	E_l, E_h, [srcend, -32]
-	ldp	F_l, F_h, [srcend, -16]
+	ldp	B_l, B_h, [src, 8]
+	ldp	C_l, C_h, [src, 16]
+	ldp	D_l, D_h, [src, 24]
+	ldp	E_l, E_h, [srcend, -16]
+	ldp	F_l, F_h, [srcend, -8]
 	stp	A_l, A_h, [dstin]
-	stp	B_l, B_h, [dstin, 16]
-	stp	C_l, C_h, [dstin, 32]
-	stp	D_l, D_h, [dstin, 48]
-	stp	E_l, E_h, [dstend, -32]
-	stp	F_l, F_h, [dstend, -16]
+	stp	B_l, B_h, [dstin, 8]
+	stp	C_l, C_h, [dstin, 16]
+	stp	D_l, D_h, [dstin, 24]
+	stp	E_l, E_h, [dstend, -16]
+	stp	F_l, F_h, [dstend, -8]
 	ret
 
 	/* Align DST to 16 byte alignment so that we don't cross cache line
@@ -181,37 +181,37 @@ L(copy_long):
 	add	count, count, tmp1	/* Count is now 16 too large.  */
 	ldp	A_l, A_h, [src, 16]
 	stp	D_l, D_h, [dstin]
-	ldp	B_l, B_h, [src, 32]
-	ldp	C_l, C_h, [src, 48]
-	ldp	D_l, D_h, [src, 64]!
-	subs	count, count, 128 + 16	/* Test and readjust count.  */
+	ldp	B_l, B_h, [src, 16]
+	ldp	C_l, C_h, [src, 24]
+	ldp	D_l, D_h, [src, 32]!
+	subs	count, count, 64 + 16	/* Test and readjust count.  */
 	b.ls	2f
 1:
-	stp	A_l, A_h, [dst, 16]
-	ldp	A_l, A_h, [src, 16]
-	stp	B_l, B_h, [dst, 32]
-	ldp	B_l, B_h, [src, 32]
-	stp	C_l, C_h, [dst, 48]
-	ldp	C_l, C_h, [src, 48]
-	stp	D_l, D_h, [dst, 64]!
-	ldp	D_l, D_h, [src, 64]!
-	subs	count, count, 64
+	stp	A_l, A_h, [dst, 8]
+	ldp	A_l, A_h, [src, 8]
+	stp	B_l, B_h, [dst, 	16]
+	ldp	B_l, B_h, [src, 16]
+	stp	C_l, C_h, [dst, 24]
+	ldp	C_l, C_h, [src, 24]
+	stp	D_l, D_h, [dst, 32]!
+	ldp	D_l, D_h, [src, 32]!
+	subs	count, count, 32
 	b.hi	1b
 
 	/* Write the last full set of 64 bytes.	 The remainder is at most 64
 	   bytes, so it is safe to always copy 64 bytes from the end even if
 	   there is just 1 byte left.  */
 2:
-	ldp	E_l, E_h, [srcend, -64]
-	stp	A_l, A_h, [dst, 16]
-	ldp	A_l, A_h, [srcend, -48]
-	stp	B_l, B_h, [dst, 32]
-	ldp	B_l, B_h, [srcend, -32]
-	stp	C_l, C_h, [dst, 48]
-	ldp	C_l, C_h, [srcend, -16]
-	stp	D_l, D_h, [dst, 64]
-	stp	E_l, E_h, [dstend, -64]
-	stp	A_l, A_h, [dstend, -48]
-	stp	B_l, B_h, [dstend, -32]
-	stp	C_l, C_h, [dstend, -16]
+	ldp	E_l, E_h, [srcend, -32]
+	stp	A_l, A_h, [dst, 8]
+	ldp	A_l, A_h, [srcend, -24]
+	stp	B_l, B_h, [dst, 16]
+	ldp	B_l, B_h, [srcend, -16]
+	stp	C_l, C_h, [dst, 24]
+	ldp	C_l, C_h, [srcend, -8]
+	stp	D_l, D_h, [dst, 32]
+	stp	E_l, E_h, [dstend, -32]
+	stp	A_l, A_h, [dstend, -24]
+	stp	B_l, B_h, [dstend, -16]
+	stp	C_l, C_h, [dstend, -8]
 	ret
