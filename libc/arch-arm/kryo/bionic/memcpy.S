@@ -30,7 +30,7 @@
 
 #include <private/bionic_asm.h>
 
-#define PLDOFFS (16)
+#define PLDOFFS (8)
 #define PLDSIZE (64) /* L2 cache line size */
 
         .syntax unified
@@ -46,9 +46,9 @@ ENTRY(__memcpy_kryo)
         .cfi_rel_offset r0, 0
         cmp             r2, #4
         blt             .Lneon_lt4
-        cmp             r2, #16
+        cmp             r2, #8
         blt             .Lneon_lt16
-        cmp             r2, #32
+        cmp             r2, #16
         blt             .Lneon_16
         cmp              r2, #64
         blt              .Lneon_copy_32_a
