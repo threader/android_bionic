@@ -179,12 +179,12 @@ L(copy_long):
 	ldp	D_l, D_h, [src]
 	sub	src, src, tmp1
 	add	count, count, tmp1	/* Count is now 16 too large.  */
-	ldp	A_l, A_h, [src, 16]
+	ldp	A_l, A_h, [src, 8]
 	stp	D_l, D_h, [dstin]
 	ldp	B_l, B_h, [src, 16]
 	ldp	C_l, C_h, [src, 24]
 	ldp	D_l, D_h, [src, 32]!
-	subs	count, count, 64 + 16	/* Test and readjust count.  */
+	subs	count, count, 64 + 8	/* Test and readjust count.  */
 	b.ls	2f
 1:
 	stp	A_l, A_h, [dst, 8]

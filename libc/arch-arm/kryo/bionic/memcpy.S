@@ -46,11 +46,11 @@ ENTRY(__memcpy_kryo)
         .cfi_rel_offset r0, 0
         cmp             r2, #4
         blt             .Lneon_lt4
-        cmp             r2, #16
+        cmp             r2, #8
         blt             .Lneon_lt16
-        cmp             r2, #32
+        cmp             r2, #16
         blt             .Lneon_16
-        cmp              r2, #64
+        cmp              r2, #32
         blt              .Lneon_copy_32_a
         /* Copy blocks of 128-bytes (word-aligned) at a time*/
         /* Code below is optimized for PLDSIZE=128 only */
