@@ -268,6 +268,7 @@ static bool get_environment_memtag_setting(HeapTaggingLevel* level) {
   if (is_vendor_prog) {
     bool apply_override =
         strcmp(progname, "/apex/com.google.pixel.camera.hal/bin/hw/android.hardware.camera.provider@2.7-service-google")
+        && strcmp(progname, "/apex/com.google.pixel.wifi.ext/bin/hw/vendor.google.wifi_ext-service-vendor")
     ;
     if (apply_override) {
         *level = M_HEAP_TAGGING_LEVEL_ASYNC;
