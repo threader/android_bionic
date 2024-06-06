@@ -67,6 +67,8 @@ void* memmem(const void* __haystack, size_t __haystack_size, const void* __needl
  */
 void* _Nonnull memset_explicit(void* _Nonnull __dst, int __ch, size_t __n) __INTRODUCED_IN(34);
 
+char* _Nullable strchr(const char* _Nonnull __s, int __ch) __attribute_pure__;
+char* _Nullable __strchr_chk(const char* _Nonnull __s, int __ch, size_t __n);
 
 #if defined(__USE_GNU)
 #if defined(__cplusplus)
