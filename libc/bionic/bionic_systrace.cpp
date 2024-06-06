@@ -24,6 +24,7 @@
 #include "private/bionic_systrace.h"
 #include "private/CachedProperty.h"
 
+#include <async_safe/log.h> 
 #include <cutils/trace.h> // For ATRACE_TAG_BIONIC.
 
 static Lock g_lock;
@@ -59,14 +60,6 @@ void bionic_trace_begin(const char* message) {
     return;
   }
 
-//==== BASE ====
-  // If bionic tracing has been enabled, then write the message to the
-  // kernel trace_marker.
-  int length = strlen(message);
-  char buf[length + WRITE_OFFSET];
-  size_t len = async_safe_format_buffer(buf, length + WRITE_OFFSET, "B|%d|%s", getpid(), message);
-
-// ==== BASE ====
   // Tracing may stop just after checking property and before writing the message.
   // So the write is acceptable to fail. See b/20666100.
   async_safe_format_fd(trace_marker_fd, "B|%d|%s", getpid(), message);
