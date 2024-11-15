@@ -98,6 +98,10 @@ if (IS("/apex/com.google.pixel.camera.hal/bin/hw/android.hardware.camera.provide
   else if (IS("/system/bin/surfaceflinger")) {
     prog_id = PROG_SURFACEFLINGER;
   }
+  else if (IS("/vendor/bin/hw/android.hardware.audio.service")) {
+    // needed for Pixel Tablet as of Android 15, see https://github.com/GrapheneOS/os-issue-tracker/issues/4306
+    flags = GLOBAL_FLAG_DISABLE_HARDENED_MALLOC;
+  }
 
 #undef IS
 
