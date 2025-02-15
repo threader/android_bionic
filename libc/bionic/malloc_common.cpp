@@ -107,6 +107,36 @@ extern "C" int mallopt(int param, int value) {
     ScopedPthreadMutexLocker locker(&g_heap_tagging_lock);
     return SetHeapTaggingLevel(static_cast<HeapTaggingLevel>(value));
   }
+
+  if (param == M_BIONIC_BLOCK_HEAP_TAGGING_LEVEL_DOWNGRADE) {
+    ScopedPthreadMutexLocker locker(&g_heap_tagging_lock);
+    return BlockHeapTaggingLevelDowngrade();
+  }
+
+  if (param == M_BIONIC_ENABLE_SIGCHAINLIB_MTE_SIGSEGV_INTERCEPTION) {
+    if (__libc_globals->is_sigchainlib_mte_sigsegv_interception_enabled) {
+      return 0;
+    }
+
+    __libc_globals.mutate([](libc_globals* globals) {
+      globals->is_sigchainlib_mte_sigsegv_interception_enabled = true;
+    });
+
+    return 1;
+  }
+
+  if (param == M_BIONIC_SIGCHAINLIB_SHOULD_INTERCEPT_MTE_SIGSEGV) {
+    return __libc_globals->is_sigchainlib_mte_sigsegv_interception_enabled;
+  }
+
+  if (param == M_BIONIC_RESTORE_DEFAULT_SIGABRT_HANDLER) {
+    if (__libc_globals->saved_sigabrt_handler.sa_sigaction != nullptr) {
+      sigaction(SIGABRT, &__libc_globals->saved_sigabrt_handler, nullptr);
+      return 1;
+    }
+    return 0;
+  }
+
   if (param == M_BIONIC_ZERO_INIT) {
     return SetHeapZeroInitialize(value);
   }
@@ -340,14 +370,6 @@ extern "C" bool android_mallopt(int opcode, void* arg, size_t arg_size) {
   if (opcode == M_SET_ALLOCATION_LIMIT_BYTES) {
     return LimitEnable(arg, arg_size);
   }
-  if (opcode == M_INITIALIZE_GWP_ASAN) {
-    if (arg == nullptr || arg_size != sizeof(android_mallopt_gwp_asan_options_t)) {
-      errno = EINVAL;
-      return false;
-    }
-
-    return EnableGwpAsan(*reinterpret_cast<android_mallopt_gwp_asan_options_t*>(arg));
-  }
   if (opcode == M_MEMTAG_STACK_IS_ON) {
     if (arg == nullptr || arg_size != sizeof(bool)) {
       errno = EINVAL;
@@ -393,6 +415,68 @@ static constexpr MallocDispatch __libc_malloc_default_dispatch __attribute__((un
   Malloc(malloc_info),
 };
 
+#if defined(BOTH_H_MALLOC_AND_SCUDO)
+
+#define ScudoMalloc(function)  scudo_ ## function
+
+static constexpr MallocDispatch __scudo_malloc_dispatch __attribute__((unused)) = {
+  ScudoMalloc(calloc),
+  ScudoMalloc(free),
+  ScudoMalloc(mallinfo),
+  ScudoMalloc(malloc),
+  ScudoMalloc(malloc_usable_size),
+  ScudoMalloc(memalign),
+  ScudoMalloc(posix_memalign),
+#if defined(HAVE_DEPRECATED_MALLOC_FUNCS)
+  ScudoMalloc(pvalloc),
+#endif
+  ScudoMalloc(realloc),
+#if defined(HAVE_DEPRECATED_MALLOC_FUNCS)
+  ScudoMalloc(valloc),
+#endif
+  ScudoMalloc(malloc_iterate),
+  ScudoMalloc(malloc_disable),
+  ScudoMalloc(malloc_enable),
+  ScudoMalloc(mallopt),
+  ScudoMalloc(aligned_alloc),
+  ScudoMalloc(malloc_info),
+};
+
+static const MallocDispatch* native_allocator_dispatch;
+
+void InitNativeAllocatorDispatch(libc_globals* globals) {
+  bool hardened_impl = true;
+  switch (get_prog_id()) {
+      case PROG_PIXEL_CAMERA_PROVIDER_SERVICE:
+      case PROG_SURFACEFLINGER:
+        hardened_impl = false;
+        break;
+      default:
+        if (globals->flags & GLOBAL_FLAG_DISABLE_HARDENED_MALLOC) {
+            hardened_impl = false;
+        } else {
+            hardened_impl = getenv("DISABLE_HARDENED_MALLOC") == nullptr;
+        }
+  }
+
+  const MallocDispatch* table = hardened_impl ?
+    &__libc_malloc_default_dispatch :
+    &__scudo_malloc_dispatch;
+
+  if (!hardened_impl) {
+    globals->malloc_dispatch_table = __scudo_malloc_dispatch;
+    globals->current_dispatch_table = &globals->malloc_dispatch_table;
+    globals->default_dispatch_table = &globals->malloc_dispatch_table;
+  }
+
+  native_allocator_dispatch = table;
+}
+
+const MallocDispatch* NativeAllocatorDispatch() {
+  return native_allocator_dispatch;
+}
+#else
 const MallocDispatch* NativeAllocatorDispatch() {
   return &__libc_malloc_default_dispatch;
 }
+#endif

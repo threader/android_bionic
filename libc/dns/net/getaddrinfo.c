@@ -385,7 +385,7 @@ static int
 _have_ipv4(unsigned mark, uid_t uid) {
 	static const struct sockaddr_in sin_test = {
 		.sin_family = AF_INET,
-		.sin_addr.s_addr = __constant_htonl(0x08080808L)  // 8.8.8.8
+		.sin_addr.s_addr = __constant_htonl(0x08080808L)  // 8.8.8.8 (routable public IP, not used to make a connection or send any data)
 	};
 	sockaddr_union addr = { .in = sin_test };
 	return _find_src_addr(&addr.generic, NULL, mark, uid) == 1;
@@ -611,6 +611,8 @@ android_getaddrinfofornetcontext(const char *hostname, const char *servname,
 	pai->ai_canonname = NULL;
 	pai->ai_addr = NULL;
 	pai->ai_next = NULL;
+
+	hostname = hook_translate_hostname(hostname);
 
 	if (hostname == NULL && servname == NULL)
 		return EAI_NONAME;

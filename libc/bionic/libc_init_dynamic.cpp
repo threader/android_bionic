@@ -79,6 +79,44 @@ extern "C" __attribute__((weak)) void __hwasan_library_unloaded(ElfW(Addr) base,
                                                                 const ElfW(Phdr)* phdr,
                                                                 ElfW(Half) phnum);
 
+static void init_prog_id(libc_globals* globals) {
+  char exe_path[500];
+  ssize_t readlink_res = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1 /* space for NUL terminator */);
+  if (readlink_res <= 0) {
+    return;
+  }
+  exe_path[readlink_res] = '\0';
+
+  int prog_id = 0;
+  int flags = 0;
+
+#define IS(prog) (!strcmp(exe_path, prog))
+
+  if (IS("/vendor/bin/xtra-daemon")) {
+    prog_id = PROG_XTRA_DAEMON;
+  }
+  else if (IS("/apex/com.google.pixel.camera.hal/bin/hw/android.hardware.camera.provider@2.7-service-google")) {
+    prog_id = PROG_PIXEL_CAMERA_PROVIDER_SERVICE;
+  }
+  else if (IS("/system/bin/surfaceflinger")) {
+    prog_id = PROG_SURFACEFLINGER;
+  }
+  else if (IS("/vendor/bin/hw/android.hardware.audio.service")) {
+    // needed for Pixel Tablet as of Android 15, see https://github.com/GrapheneOS/os-issue-tracker/issues/4306
+    flags = GLOBAL_FLAG_DISABLE_HARDENED_MALLOC;
+  }
+
+#undef IS
+
+  // libc_globals struct is write-protected
+  globals->flags = flags;
+  globals->prog_id = prog_id;
+}
+
+int get_prog_id() {
+  return __libc_globals->prog_id;
+}
+
 // We need a helper function for __libc_preinit because compiling with LTO may
 // inline functions requiring a stack protector check, but __stack_chk_guard is
 // not initialized at the start of __libc_preinit. __libc_preinit_impl will run
@@ -110,7 +148,13 @@ static void __libc_preinit_impl() {
 #endif
 
   // Hooks for various libraries to let them know that we're starting up.
-  __libc_globals.mutate(__libc_init_malloc);
+  __libc_globals.mutate([](libc_globals* globals) {
+    init_prog_id(globals);
+    __libc_init_malloc(globals);
+
+    // save the default SIGABRT handler to support restoring it with mallopt(M_BIONIC_RESTORE_DEFAULT_SIGABRT_HANDLER)
+    sigaction(SIGABRT, nullptr, &globals->saved_sigabrt_handler);
+  });
 
   // Install reserved signal handlers for assisting the platform's profilers.
   __libc_init_profiling_handlers();

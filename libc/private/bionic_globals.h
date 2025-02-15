@@ -43,12 +43,15 @@
 #include "private/bionic_malloc_dispatch.h"
 #include "private/bionic_vdso.h"
 
+#define GLOBAL_FLAG_DISABLE_HARDENED_MALLOC 1
+
 struct libc_globals {
   vdso_entry vdso[VDSO_END];
   long setjmp_cookie;
   uintptr_t heap_pointer_tag;
   _Atomic(bool) decay_time_enabled;
   _Atomic(bool) memtag;
+  long dtor_cookie;
 
   // In order to allow a complete switch between dispatch tables without
   // the need for copying each function by function in the structure,
@@ -64,6 +67,10 @@ struct libc_globals {
   // limit is enabled and some other hook is enabled at the same time.
   _Atomic(const MallocDispatch*) default_dispatch_table;
   MallocDispatch malloc_dispatch_table;
+  int prog_id;
+  bool is_sigchainlib_mte_sigsegv_interception_enabled;
+  struct sigaction saved_sigabrt_handler;
+  int flags;
 };
 
 struct memtag_dynamic_entries_t {

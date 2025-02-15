@@ -329,9 +329,11 @@ LIBC {
     execlp;
     execv;
     execve;
+    execveat;
     execvp;
     execvpe;
     exit;
+    explicit_bzero; # introduced=33
     faccessat;
     fallocate;
     fallocate64;
@@ -420,6 +422,7 @@ LIBC {
     get_nprocs; # introduced=23
     get_nprocs_conf; # introduced=23
     get_phys_pages; # introduced=23
+    get_prog_id;
     getaddrinfo;
     getauxval;
     getc;
@@ -495,6 +498,9 @@ LIBC {
     gmtime_r;
     grantpt;
     herror;
+    hook_get_trusted_ssl_certificates;
+    hook_override_ssl_write;
+    hook_translate_hostname;
     hstrerror;
     htonl;
     htons;

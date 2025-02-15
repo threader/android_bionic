@@ -36,6 +36,8 @@
 #include <sys/auxv.h>
 #include <sys/prctl.h>
 
+extern "C" void h_malloc_disable_memory_tagging();
+
 extern "C" void scudo_malloc_disable_memory_tagging();
 extern "C" void scudo_malloc_set_track_allocation_stacks(int);
 
@@ -73,19 +75,26 @@ void SetDefaultHeapTaggingLevel() {
     };
   });
 
-#if defined(USE_SCUDO) && !__has_feature(hwaddress_sanitizer)
+
   switch (heap_tagging_level) {
     case M_HEAP_TAGGING_LEVEL_TBI:
     case M_HEAP_TAGGING_LEVEL_NONE:
+#if defined(USE_SCUDO)
       scudo_malloc_disable_memory_tagging();
+#endif
+#if defined(USE_H_MALLOC)
+      h_malloc_disable_memory_tagging();
+#endif
       break;
     case M_HEAP_TAGGING_LEVEL_SYNC:
+#if defined(USE_SCUDO)
       scudo_malloc_set_track_allocation_stacks(1);
+#endif
       break;
     default:
       break;
   }
-#endif  // USE_SCUDO
+
 #endif  // aarch64
 }
 
@@ -106,10 +115,29 @@ static bool set_tcf_on_all_threads(int tcf) {
 
 pthread_mutex_t g_heap_tagging_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static bool block_heap_tagging_level_downgrade;
+
+// Requires `g_heap_tagging_lock` to be held.
+bool BlockHeapTaggingLevelDowngrade() {
+  if (block_heap_tagging_level_downgrade) {
+    return false;
+  }
+  block_heap_tagging_level_downgrade = true;
+  return true;
+}
+
 // Requires `g_heap_tagging_lock` to be held.
 bool SetHeapTaggingLevel(HeapTaggingLevel tag_level) {
   if (tag_level == heap_tagging_level) {
     return true;
+  }
+
+  if (block_heap_tagging_level_downgrade) {
+    // allow switching between SYNC and ASYNC, but don't allow disabling memory tagging
+    if (tag_level < heap_tagging_level && tag_level != M_HEAP_TAGGING_LEVEL_ASYNC) {
+      error_log("SetHeapTaggingLevel: blocked downgrade of tag level from %i to %i", heap_tagging_level, tag_level);
+      return false;
+    }
   }
 
   switch (tag_level) {
@@ -133,6 +161,9 @@ bool SetHeapTaggingLevel(HeapTaggingLevel tag_level) {
       }
 #if defined(USE_SCUDO) && !__has_feature(hwaddress_sanitizer)
       scudo_malloc_disable_memory_tagging();
+#endif
+#if defined(USE_H_MALLOC)
+      h_malloc_disable_memory_tagging();
 #endif
       break;
     case M_HEAP_TAGGING_LEVEL_TBI:

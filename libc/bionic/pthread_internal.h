@@ -72,6 +72,7 @@ class pthread_internal_t {
   pid_t tid;
 
  private:
+  // accessed from vfork asm via offset of field, so don't put fields above this
   uint32_t cached_pid_ : 31;
   uint32_t vforked_ : 1;
 
@@ -265,7 +266,11 @@ __LIBC_HIDDEN__ void pthread_key_clean_all(void);
 // stack overflows, we subtracted the same amount we were using there
 // from the default thread stack size. This should keep memory usage
 // roughly constant.
+#ifdef __LP64__
+#define PTHREAD_STACK_SIZE_DEFAULT ((8 * 1024 * 1024) - SIGNAL_STACK_SIZE_WITHOUT_GUARD)
+#else
 #define PTHREAD_STACK_SIZE_DEFAULT ((1 * 1024 * 1024) - SIGNAL_STACK_SIZE_WITHOUT_GUARD)
+#endif
 
 // Leave room for a guard page in the internally created signal stacks.
 #define SIGNAL_STACK_SIZE (SIGNAL_STACK_SIZE_WITHOUT_GUARD + PTHREAD_GUARD_SIZE)

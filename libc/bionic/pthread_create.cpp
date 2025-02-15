@@ -29,6 +29,7 @@
 #include <pthread.h>
 
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
@@ -216,9 +217,25 @@ int __init_thread(pthread_internal_t* thread) {
 ThreadMapping __allocate_thread_mapping(size_t stack_size, size_t stack_guard_size) {
   const StaticTlsLayout& layout = __libc_shared_globals()->static_tls_layout;
 
-  // Allocate in order: stack guard, stack, static TLS, guard page.
+  // round up if the given stack size is not in multiples of page size
+  stack_size = __BIONIC_ALIGN(stack_size, page_size());
+  size_t thread_page_size = __BIONIC_ALIGN(sizeof(pthread_internal_t), page_size());
+
+  // Place a randomly sized gap above the stack, up to 10% as large as the stack
+  // on 32-bit and 50% on 64-bit where virtual memory is plentiful.
+#if __LP64__
+  size_t max_gap_size = stack_size / 2;
+#else
+  size_t max_gap_size = stack_size / 10;
+#endif
+  // Make sure random stack top guard size are multiples of page size.
+  size_t gap_size = __BIONIC_ALIGN(arc4random_uniform(max_gap_size), page_size());
+
+  // Allocate in order: stack guard, stack, (random) guard page(s), pthread_internal_t, static TLS, guard page.
   size_t mmap_size;
   if (__builtin_add_overflow(stack_size, stack_guard_size, &mmap_size)) return {};
+  if (__builtin_add_overflow(mmap_size, gap_size, &mmap_size)) return {};
+  if (__builtin_add_overflow(mmap_size, thread_page_size, &mmap_size)) return {};
   if (__builtin_add_overflow(mmap_size, layout.size(), &mmap_size)) return {};
   if (__builtin_add_overflow(mmap_size, PTHREAD_GUARD_SIZE, &mmap_size)) return {};
 
@@ -227,8 +244,8 @@ ThreadMapping __allocate_thread_mapping(size_t stack_size, size_t stack_guard_si
   mmap_size = __BIONIC_ALIGN(mmap_size, page_size());
   if (mmap_size < unaligned_size) return {};
 
-  // Create a new private anonymous map. Make the entire mapping PROT_NONE, then carve out a
-  // read+write area in the middle.
+  // Create a new private anonymous map. Make the entire mapping PROT_NONE, then carve out
+  // read+write areas for the stack and static TLS
   const int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
   char* const space = static_cast<char*>(mmap(nullptr, mmap_size, PROT_NONE, flags, -1, 0));
   if (space == MAP_FAILED) {
@@ -237,7 +254,6 @@ ThreadMapping __allocate_thread_mapping(size_t stack_size, size_t stack_guard_si
                           mmap_size);
     return {};
   }
-  const size_t writable_size = mmap_size - stack_guard_size - PTHREAD_GUARD_SIZE;
   int prot = PROT_READ | PROT_WRITE;
   const char* prot_str = "R+W";
 #ifdef __aarch64__
@@ -246,11 +262,29 @@ ThreadMapping __allocate_thread_mapping(size_t stack_size, size_t stack_guard_si
     prot_str = "R+W+MTE";
   }
 #endif
-  if (mprotect(space + stack_guard_size, writable_size, prot) != 0) {
+  // Stack is at the lower end of mapped space, stack guard region is at the lower end of stack.
+  // Make the usable portion of the stack between the guard region and random gap readable and
+  // writable.
+  if (mprotect(space + stack_guard_size, stack_size, prot) != 0) {
     async_safe_format_log(
         ANDROID_LOG_WARN, "libc",
-        "pthread_create failed: couldn't mprotect %s %zu-byte thread mapping region: %m", prot_str,
-        writable_size);
+        "pthread_create failed: couldn't mprotect %s %zu-byte stack mapping region: %m", prot_str,
+        stack_size);
+    munmap(space, mmap_size);
+    return {};
+  }
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, space, stack_guard_size, "stack guard");
+  char* const stack_top_guard = space + stack_guard_size + stack_size;
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, stack_top_guard, gap_size, "stack top guard");
+
+  char* const thread = space + stack_guard_size + stack_size + gap_size;
+  char* const static_tls_space = thread + thread_page_size;
+
+  if (mprotect(thread, thread_page_size + layout.size(), PROT_READ | PROT_WRITE) != 0) {
+    async_safe_format_log(
+        ANDROID_LOG_WARN, "libc",
+        "pthread_create failed: couldn't mprotect R+W %zu-byte static TLS and pthread_internal mapping region: %m",
+         thread_page_size + layout.size());
     munmap(space, mmap_size);
     return {};
   }
@@ -260,9 +294,12 @@ ThreadMapping __allocate_thread_mapping(size_t stack_size, size_t stack_guard_si
   result.mmap_size = mmap_size;
   result.mmap_base_unguarded = space + stack_guard_size;
   result.mmap_size_unguarded = mmap_size - stack_guard_size - PTHREAD_GUARD_SIZE;
-  result.static_tls = space + mmap_size - PTHREAD_GUARD_SIZE - layout.size();
+  result.static_tls = static_tls_space;
   result.stack_base = space;
-  result.stack_top = result.static_tls;
+  // Choose a random base within the first page of the stack. Waste no more
+  // than the space originally wasted by pthread_internal_t for compatibility.
+  result.stack_top = space + stack_guard_size + stack_size - arc4random_uniform(sizeof(pthread_internal_t));
+  result.stack_top = reinterpret_cast<char*>(__BIONIC_ALIGN_DOWN(reinterpret_cast<size_t>(result.stack_top), 16));
   return result;
 }
 
@@ -292,13 +329,8 @@ static int __allocate_thread(pthread_attr_t* attr, bionic_tcb** tcbp, void** chi
     stack_top = static_cast<char*>(attr->stack_base) + attr->stack_size;
   }
 
-  // Carve out space from the stack for the thread's pthread_internal_t. This
-  // memory isn't counted in pthread_attr_getstacksize.
-
-  // To safely access the pthread_internal_t and thread stack, we need to find a 16-byte aligned boundary.
-  stack_top = align_down(stack_top - sizeof(pthread_internal_t), 16);
-
-  pthread_internal_t* thread = reinterpret_cast<pthread_internal_t*>(stack_top);
+  pthread_internal_t* thread = reinterpret_cast<pthread_internal_t*>(
+      mapping.static_tls - __BIONIC_ALIGN(sizeof(pthread_internal_t), page_size()));
   if (!stack_clean) {
     // If thread was not allocated by mmap(), it may not have been cleared to zero.
     // So assume the worst and zero it.
