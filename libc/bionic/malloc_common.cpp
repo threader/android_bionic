@@ -108,11 +108,6 @@ extern "C" int mallopt(int param, int value) {
     return SetHeapTaggingLevel(static_cast<HeapTaggingLevel>(value));
   }
 
-  if (param == M_BIONIC_BLOCK_HEAP_TAGGING_LEVEL_DOWNGRADE) {
-    ScopedPthreadMutexLocker locker(&g_heap_tagging_lock);
-    return BlockHeapTaggingLevelDowngrade();
-  }
-
   if (param == M_BIONIC_ENABLE_SIGCHAINLIB_MTE_SIGSEGV_INTERCEPTION) {
     if (__libc_globals->is_sigchainlib_mte_sigsegv_interception_enabled) {
       return 0;
