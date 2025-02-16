@@ -207,10 +207,6 @@ static HeapTaggingLevel __get_memtag_level_from_note(const ElfW(Phdr) * phdr_sta
   }
 }
 
-static bool starts_with(const char* s, const char* prefix) {
-    return strncmp(s, prefix, strlen(prefix)) == 0;
-}
-
 // Returns true if there's an environment setting (either sysprop or env var)
 // that should overwrite the ELF note, and places the equivalent heap tagging
 // level into *level.
@@ -222,19 +218,6 @@ static bool get_environment_memtag_setting(HeapTaggingLevel* level) {
 
   const char* progname = __libc_shared_globals()->init_progname;
   if (progname == nullptr) return false;
-
-  const bool is_vendor_prog = starts_with(progname, "/vendor/") || starts_with(progname, "/apex/com.google.");
-  const bool is_debug_build = is_debuggable_build();
-  if (is_vendor_prog) {
-    bool apply_override =
-        strcmp(progname, "/apex/com.google.pixel.camera.hal/bin/hw/android.hardware.camera.provider@2.7-service-google")
-    ;
-    if (apply_override) {
-        *level = M_HEAP_TAGGING_LEVEL_ASYNC;
-    } else if (!is_debug_build) {
-        return true;
-    }
-  }
 
   const char* basename = __gnu_basename(progname);
 
