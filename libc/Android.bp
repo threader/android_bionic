@@ -204,16 +204,30 @@ cc_defaults {
             ],
         },
         lib64: {
-            srcs: ["bionic/h_malloc_wrapper.cpp"],
-            cflags: [
-                "-DH_MALLOC_PREFIX",
-                "-DUSE_H_MALLOC",
-                "-DUSE_SCUDO",
-            ],
-            whole_static_libs: [
-                "libhardened_malloc",
-            ],
+            product_variables: {
+                malloc_low_memory: {
+                    cflags: ["-UUSE_SCUDO"],
+                    whole_static_libs: [
+                        "libjemalloc5",
+                        "libc_jemalloc_wrapper",
+                    ],
+                    exclude_static_libs: [
+                        "libscudo",
+                    ],
+                },
+            },
         },
+       // lib64: {
+       //     srcs: ["bionic/h_malloc_wrapper.cpp"],
+       //     cflags: [
+       //         "-DH_MALLOC_PREFIX",
+       //         "-DUSE_H_MALLOC",
+       //         "-DUSE_SCUDO",
+       //     ],
+       //     whole_static_libs: [
+       //        "libhardened_malloc",
+       //     ],
+       // },
     },
 }
 
@@ -230,8 +244,9 @@ cc_library_static {
             static_libs: ["libjemalloc5"],
         },
         lib64: {
-            srcs: ["bionic/h_malloc_wrapper.cpp"],
-            static_libs: ["libhardened_malloc"],
+//            srcs: ["bionic/h_malloc_wrapper.cpp"],
+//            static_libs: ["libhardened_malloc"],
+    srcs: ["bionic/jemalloc_wrapper.cpp"],
         },
     },
     cflags: ["-fvisibility=hidden"],

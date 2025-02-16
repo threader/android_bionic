@@ -57,9 +57,10 @@ __END_DECLS
 
 #ifdef  __LP64__
 #ifndef USE_H_MALLOC
-#error missing USE_H_MALLOC
+//#warning missing USE_H_MALLOC
 #endif
 
+#ifdef USE_H_MALLOC
 #include "h_malloc.h"
 #define Malloc(function)  h_ ## function
 __BEGIN_DECLS
@@ -70,7 +71,6 @@ __END_DECLS
 #include "scudo.h"
 void InitNativeAllocatorDispatch(libc_globals* globals);
 #endif
-
 #define BOTH_H_MALLOC_AND_SCUDO
 
 #else // 32-bit
@@ -78,7 +78,23 @@ void InitNativeAllocatorDispatch(libc_globals* globals);
 #define Malloc(function)  scudo_ ## function
 #endif
 
-#endif
+#else // USE_H_MALLOC
+
+#if defined(USE_SCUDO)
+#include "scudo.h"
+#define Malloc(function)  scudo_ ## function
+
+#elif defined(USE_SCUDO_SVELTE)
+#include "scudo.h"
+#define Malloc(function)  scudo_svelte_ ## function
+#else
+#include "jemalloc.h"
+#define Malloc(function)  je_ ## function
+#endif // USE_SCUDO
+
+#endif // USE_H_MALLOC
+
+#endif 
 
 const MallocDispatch* NativeAllocatorDispatch();
 
