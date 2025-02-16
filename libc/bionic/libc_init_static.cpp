@@ -211,11 +211,6 @@ static bool starts_with(const char* s, const char* prefix) {
     return strncmp(s, prefix, strlen(prefix)) == 0;
 }
 
-static bool is_debuggable_build() {
-  char pv[8];
-  return get_property_value("ro.debuggable", pv, sizeof(pv)) && strcmp(pv, "1") == 0;
-}
-
 // Returns true if there's an environment setting (either sysprop or env var)
 // that should overwrite the ELF note, and places the equivalent heap tagging
 // level into *level.
@@ -254,7 +249,7 @@ static bool get_environment_memtag_setting(HeapTaggingLevel* level) {
 
   if (!get_config_from_env_or_sysprops("MEMTAG_OPTIONS", sys_prop_names, arraysize(sys_prop_names),
                                        options_str, sizeof(options_str))) {
-    return is_vendor_prog;
+    return false;
   }
 
   if (strcmp("sync", options_str) == 0) {
