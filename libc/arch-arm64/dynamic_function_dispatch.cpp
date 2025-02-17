@@ -105,6 +105,8 @@ DEFINE_IFUNC_FOR(memset) {
 }
 MEMSET_SHIM()
 
+typedef int stpcpy_func(char*, const char*); 
+
 DEFINE_IFUNC_FOR(stpcpy) {
   // TODO: enable the SVE version.
   RETURN_FUNC(stpcpy_func_t, __stpcpy_aarch64);

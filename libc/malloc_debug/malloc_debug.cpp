@@ -39,6 +39,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#include <sys/system_properties.h>
+
 #include <mutex>
 #include <vector>
 
@@ -163,6 +165,9 @@ static TimedResult TimerCallVoid(MallocFn fn, Args... args) {
 #define TCALL(FUNC, ...) TimerCall(&MallocDispatch::FUNC, __VA_ARGS__);
 #define TCALLVOID(FUNC, ...) TimerCallVoid(&MallocDispatch::FUNC, __VA_ARGS__);
 
+
+size_t g_min_alloc_to_record = 0;
+size_t g_max_alloc_to_record = SIZE_MAX;
 // ------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------
@@ -421,6 +426,23 @@ bool debug_initialize(const MallocDispatch* malloc_dispatch, bool* zygote_child,
   // Always enable the backtrace code since we will use it in a number
   // of different error cases.
   backtrace_startup();
+
+  char min_alloc_to_record[10];
+  if (__system_property_get("libc.debug.malloc.minalloctorecord", min_alloc_to_record)) {
+    g_min_alloc_to_record = atoi(min_alloc_to_record);
+  }
+
+  char max_alloc_to_record[10];
+  if (__system_property_get("libc.debug.malloc.maxalloctorecord", max_alloc_to_record)) {
+    g_max_alloc_to_record = atoi(max_alloc_to_record);
+  }
+
+  if (g_min_alloc_to_record > g_max_alloc_to_record) {
+    error_log("%s: min_alloc_to_record > max_alloc_to_record!,"
+        "reverting back to default limits", getprogname());
+    g_min_alloc_to_record = 0;
+    g_max_alloc_to_record = SIZE_MAX;
+  }
 
   if (g_debug->config().options() & VERBOSE) {
     info_log("%s: malloc debug enabled", getprogname());
