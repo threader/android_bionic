@@ -92,20 +92,6 @@ static void init_prog_id(libc_globals* globals) {
 
 #define IS(prog) (!strcmp(exe_path, prog))
 
-  if (IS("/vendor/bin/xtra-daemon")) {
-    prog_id = PROG_XTRA_DAEMON;
-  }
-  else if (IS("/apex/com.google.pixel.camera.hal/bin/hw/android.hardware.camera.provider@2.7-service-google")) {
-    prog_id = PROG_PIXEL_CAMERA_PROVIDER_SERVICE;
-  }
-  else if (IS("/system/bin/surfaceflinger")) {
-    prog_id = PROG_SURFACEFLINGER;
-  }
-  else if (IS("/vendor/bin/hw/android.hardware.audio.service")) {
-    // needed for Pixel Tablet as of Android 15, see https://github.com/GrapheneOS/os-issue-tracker/issues/4306
-    flags = GLOBAL_FLAG_DISABLE_HARDENED_MALLOC;
-  }
-
 #undef IS
 
   // libc_globals struct is write-protected
