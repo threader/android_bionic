@@ -59,41 +59,39 @@ __END_DECLS
 #ifndef USE_H_MALLOC
 //#warning missing USE_H_MALLOC
 #endif
+#endif
 
-#ifdef USE_H_MALLOC
+#if defined(USE_H_MALLOC)
 #include "h_malloc.h"
 #define Malloc(function)  h_ ## function
 __BEGIN_DECLS
 int h_malloc_info(int options, FILE* fp);
 __END_DECLS
 
-#if defined(USE_SCUDO)
+#if defined(USE_SCUDO) && defined(USE_H_MALLOC)
+#define BOTH_H_MALLOC_AND_SCUDO
 #include "scudo.h"
 void InitNativeAllocatorDispatch(libc_globals* globals);
 #endif
 
-#define BOTH_H_MALLOC_AND_SCUDO
-
-#else
-#include "scudo.h"
-#define Malloc(function)  scudo_ ## function
-#endif
-
 #endif // USE_H_MALLOC
 
-#if defined(USE_SCUDO)
+#if !defined(USE_H_MALLOC) && defined(USE_SCUDO)
 #include "scudo.h"
 #define Malloc(function)  scudo_ ## function
 
 #elif defined(USE_SCUDO_SVELTE)
+
 #include "scudo.h"
 #define Malloc(function)  scudo_svelte_ ## function
+
 #else
+
 #include "jemalloc.h"
 #define Malloc(function)  je_ ## function
-#endif // USE_SCUDO
+#endif
 
-#endif //HW_ASAN
+#endif // __has_feature(hwaddress_sanitizer)
 
 const MallocDispatch* NativeAllocatorDispatch();
 
