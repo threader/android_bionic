@@ -34,14 +34,14 @@
 #include "platform/bionic/malloc.h"
 #include "private/bionic_globals.h"
 #include "private/bionic_malloc_dispatch.h"
-
+#ifndef H_MALLOC
 // Enable GWP-ASan, used by android_mallopt. Should always be called in a
 // single-threaded context.
 bool EnableGwpAsan(const android_mallopt_gwp_asan_options_t& options);
 
 // Hooks for libc to possibly install GWP-ASan.
 bool MaybeInitGwpAsanFromLibc(libc_globals* globals);
-
+#endif
 // Returns whether GWP-ASan is the provided dispatch table pointer. Used in
 // heapprofd's signal-initialization sequence to determine the intermediate
 // dispatch pointer to use when initing.

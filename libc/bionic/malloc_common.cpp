@@ -365,6 +365,7 @@ extern "C" bool android_mallopt(int opcode, void* arg, size_t arg_size) {
   if (opcode == M_SET_ALLOCATION_LIMIT_BYTES) {
     return LimitEnable(arg, arg_size);
   }
+#ifndef H_MALLOC
   if (opcode == M_INITIALIZE_GWP_ASAN) {
     if (arg == nullptr || arg_size != sizeof(android_mallopt_gwp_asan_options_t)) {
       errno = EINVAL;
@@ -373,6 +374,7 @@ extern "C" bool android_mallopt(int opcode, void* arg, size_t arg_size) {
 
     return EnableGwpAsan(*reinterpret_cast<android_mallopt_gwp_asan_options_t*>(arg));
   }
+#endif
   if (opcode == M_MEMTAG_STACK_IS_ON) {
     if (arg == nullptr || arg_size != sizeof(bool)) {
       errno = EINVAL;
