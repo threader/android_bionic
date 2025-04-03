@@ -28,6 +28,9 @@
 
 #include "libc_init_common.h"
 
+#include <limits.h>
+#include <sys/mman.h>
+
 #include <async_safe/log.h>
 
 #include "private/KernelArgumentBlock.h"
@@ -35,16 +38,22 @@
 #include "private/bionic_defs.h"
 #include "private/bionic_elf_tls.h"
 #include "private/bionic_globals.h"
-#include "private/bionic_ssp.h"
 #include "pthread_internal.h"
 
 extern "C" pid_t __getpid();
 extern "C" int __set_tid_address(int* tid_address);
 
 // Declared in "private/bionic_ssp.h".
-uintptr_t __stack_chk_guard = 0;
+__attribute__((aligned(max_android_page_size())))
+uintptr_t __stack_chk_guard[max_android_page_size() / sizeof(uintptr_t)] = {0};
 
 static pthread_internal_t main_thread;
+
+#if __LP64__
+static const uintptr_t canary_mask = __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ ?
+  0xffffffffffffff00UL :
+  0x00ffffffffffffffUL;
+#endif
 
 // Setup for the main thread. For dynamic executables, this is called by the
 // linker _before_ libc is mapped in memory. This means that all writes to
@@ -107,10 +116,20 @@ void __init_tcb_dtv(bionic_tcb* tcb) {
 // Note in particular that it is not possible to return from any existing
 // stack frame with stack protector enabled after this function is called.
 extern "C" void android_reset_stack_guards() {
+  if (mprotect(__stack_chk_guard, sizeof(__stack_chk_guard), PROT_READ|PROT_WRITE) == -1) {
+    async_safe_fatal("mprotect __stack_chk_guard: %s", strerror(errno));
+  }
   // The TLS stack guard is set from the global, so ensure that we've initialized the global
   // before we initialize the TLS. Dynamic executables will initialize their copy of the global
   // stack protector from the one in the main thread's TLS.
-  __libc_safe_arc4random_buf(&__stack_chk_guard, sizeof(__stack_chk_guard));
+  __libc_safe_arc4random_buf(&__stack_chk_guard[0], sizeof(__stack_chk_guard[0]));
+#if __LP64__
+  // Sacrifice 8 bits of entropy on 64-bit to mitigate non-terminated C string overflows
+  __stack_chk_guard[0] &= canary_mask;
+#endif
+  if (mprotect(__stack_chk_guard, sizeof(__stack_chk_guard), PROT_READ) == -1) {
+    async_safe_fatal("mprotect __stack_chk_guard: %s", strerror(errno));
+  }
   __init_tcb_stack_guard(__get_bionic_tcb());
 }
 
