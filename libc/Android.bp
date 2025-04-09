@@ -46,8 +46,6 @@ libc_common_flags = [
     // ever touch 0, 1, or 2 bytes into a call to memset, which was never going
     // to amortize.)
     "-fno-builtin",
-
-    "-DH_MALLOC_PREFIX",
 ]
 
 // Define some common cflags
@@ -199,35 +197,17 @@ cc_defaults {
         "-DUSE_SCUDO",
     ],
     header_libs: ["gwp_asan_headers"],
-    multilib: {
-        lib64: {
-            product_variables: {
-                malloc_low_memory: {
-                    cflags: ["-UUSE_SCUDO"],
-                    whole_static_libs: [
-                        "libjemalloc5",
-                        "libc_jemalloc_wrapper",
-                    ],
-                    exclude_static_libs: [
-                        "libscudo",
-                    ],
-                },
-            },
+    product_variables: {
+        malloc_low_memory: {
+            cflags: ["-UUSE_SCUDO"],
+            whole_static_libs: [
+                "libjemalloc5",
+                "libc_jemalloc_wrapper",
+            ],
+            exclude_static_libs: [
+                "libscudo",
+            ],
         },
-        lib32: {
-            product_variables: {
-                malloc_low_memory_libc32: {
-                    cflags: ["-UUSE_SCUDO"],
-                    whole_static_libs: [
-                        "libjemalloc5",
-                        "libc_jemalloc_wrapper",
-                    ],
-                    exclude_static_libs: [
-                        "libscudo",
-                    ],
-                },
-            },
-        }
     },
 }
 
@@ -237,26 +217,14 @@ cc_library_static {
     name: "libc_jemalloc_wrapper",
     defaults: ["libc_defaults"],
     srcs: ["bionic/jemalloc_wrapper.cpp"],
+    cflags: ["-fvisibility=hidden"],
+
     // Used to pull in the jemalloc include directory so that if the
     // library is removed, the include directory is also removed.
     static_libs: ["libjemalloc5"],
 // TODO: simply use the check to see if device has mte, the requirements 
 // of harden_malloc is beyond at least the device i'm working on, 
 // needs ARM64-8.2 anyway
-//    multilib: {
-//        lib32: {
-//            // Used to pull in the jemalloc/hardened_malloc include directory so that if the
-//            // library is removed, the include directory is also removed.
-//            srcs: ["bionic/jemalloc_wrapper.cpp"],
-//            static_libs: ["libjemalloc5"],
-//        },
-//        lib64: {
-//            srcs: ["bionic/h_malloc_wrapper.cpp"],
-//            static_libs: ["libhardened_malloc"],
-//        },
-//    },
-    cflags: ["-fvisibility=hidden"],
-
 }
 
 // ========================================================
