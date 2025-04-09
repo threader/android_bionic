@@ -89,15 +89,32 @@ cc_defaults {
     recovery_available: true,
     native_bridge_supported: true,
 
-    product_variables: {
-        malloc_zero_contents: {
-            cflags: ["-DSCUDO_ZERO_CONTENTS"],
+    multilib: {
+        lib64: {
+            product_variables: {
+                malloc_zero_contents: {
+                    cflags: ["-DSCUDO_ZERO_CONTENTS"],
+                },
+                malloc_pattern_fill_contents: {
+                    cflags: ["-DSCUDO_PATTERN_FILL_CONTENTS"],
+                },
+                malloc_low_memory: {
+                    cflags: ["-UUSE_SCUDO"],
+                },
+            },
         },
-        malloc_pattern_fill_contents: {
-            cflags: ["-DSCUDO_PATTERN_FILL_CONTENTS"],
-        },
-        malloc_low_memory: {
-            cflags: ["-UUSE_SCUDO"],
+        lib32: {
+            product_variables: {
+                malloc_zero_contents: {
+                    cflags: ["-DSCUDO_ZERO_CONTENTS"],
+                },
+                malloc_pattern_fill_contents: {
+                    cflags: ["-DSCUDO_PATTERN_FILL_CONTENTS"],
+                },
+                malloc_low_memory_libc32: {
+                    cflags: ["-UUSE_SCUDO"],
+                },
+            },
         },
     },
 
@@ -175,28 +192,42 @@ cc_defaults {
 cc_defaults {
     name: "libc_native_allocator_defaults",
 
+    whole_static_libs: [
+        "libscudo",
+    ],
+    cflags: [
+        "-DUSE_SCUDO",
+    ],
     header_libs: ["gwp_asan_headers"],
-    whole_static_libs: ["libscudo"],
-
     multilib: {
-        lib32: {
-            cflags: ["-DUSE_SCUDO"],
-            exclude_static_libs: [
-                "libjemalloc5",
-                "libc_jemalloc_wrapper",
-            ],
-        },
         lib64: {
-            srcs: ["bionic/h_malloc_wrapper.cpp"],
-            cflags: [
-                "-DH_MALLOC_PREFIX",
-                "-DUSE_H_MALLOC",
-                "-DUSE_SCUDO",
-            ],
-            whole_static_libs: [
-                "libhardened_malloc",
-            ],
+            product_variables: {
+                malloc_low_memory: {
+                    cflags: ["-UUSE_SCUDO"],
+                    whole_static_libs: [
+                        "libjemalloc5",
+                        "libc_jemalloc_wrapper",
+                    ],
+                    exclude_static_libs: [
+                        "libscudo",
+                    ],
+                },
+            },
         },
+        lib32: {
+            product_variables: {
+                malloc_low_memory_libc32: {
+                    cflags: ["-UUSE_SCUDO"],
+                    whole_static_libs: [
+                        "libjemalloc5",
+                        "libc_jemalloc_wrapper",
+                    ],
+                    exclude_static_libs: [
+                        "libscudo",
+                    ],
+                },
+            },
+        }
     },
 }
 
@@ -205,18 +236,25 @@ cc_defaults {
 cc_library_static {
     name: "libc_jemalloc_wrapper",
     defaults: ["libc_defaults"],
-    multilib: {
-        lib32: {
-            // Used to pull in the jemalloc/hardened_malloc include directory so that if the
-            // library is removed, the include directory is also removed.
-            srcs: ["bionic/jemalloc_wrapper.cpp"],
-            static_libs: ["libjemalloc5"],
-        },
-        lib64: {
-            srcs: ["bionic/h_malloc_wrapper.cpp"],
-            static_libs: ["libhardened_malloc"],
-        },
-    },
+    srcs: ["bionic/jemalloc_wrapper.cpp"],
+    // Used to pull in the jemalloc include directory so that if the
+    // library is removed, the include directory is also removed.
+    static_libs: ["libjemalloc5"],
+// TODO: simply use the check to see if device has mte, the requirements 
+// of harden_malloc is beyond at least the device i'm working on, 
+// needs ARM64-8.2 anyway
+//    multilib: {
+//        lib32: {
+//            // Used to pull in the jemalloc/hardened_malloc include directory so that if the
+//            // library is removed, the include directory is also removed.
+//            srcs: ["bionic/jemalloc_wrapper.cpp"],
+//            static_libs: ["libjemalloc5"],
+//        },
+//        lib64: {
+//            srcs: ["bionic/h_malloc_wrapper.cpp"],
+//            static_libs: ["libhardened_malloc"],
+//        },
+//    },
     cflags: ["-fvisibility=hidden"],
 
 }
@@ -1906,7 +1944,7 @@ cc_library_headers {
 // libstdc++.so and libstdc++.a.
 // ========================================================
 
-cc_library {
+cc_defaults {
     defaults: [
         "libc_defaults",
         "bug_24465209_workaround",
@@ -1917,7 +1955,7 @@ cc_library {
         "bionic/__cxa_pure_virtual.cpp",
         "bionic/new.cpp",
     ],
-    name: "libstdc++",
+    name: "libstdc++_defaults",
     static_ndk_lib: true,
     static_libs: ["libasync_safe"],
     apex_available: [
@@ -1952,6 +1990,17 @@ cc_library {
             version_script: ":libstdc++.x86_64.map",
         },
     },
+}
+
+cc_library {
+    name: "libstdc++",
+    defaults: ["libstdc++_defaults"],
+}
+
+cc_library_shared {
+    name: "libstdc++_vendor",
+    defaults: ["libstdc++_defaults"],
+    vendor: true,
 }
 
 genrule {
