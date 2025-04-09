@@ -223,16 +223,12 @@ static bool get_environment_memtag_setting(HeapTaggingLevel* level) {
   const char* progname = __libc_shared_globals()->init_progname;
   if (progname == nullptr) return false;
 
-  const bool is_vendor_prog = starts_with(progname, "/vendor/") || starts_with(progname, "/apex/com.google.");
-  const bool is_debug_build = is_debuggable_build();
-  if (is_vendor_prog) {
-    bool apply_override =
-        strcmp(progname, "/apex/com.google.pixel.camera.hal/bin/hw/android.hardware.camera.provider@2.7-service-google")
-    ;
-    if (apply_override) {
-        *level = M_HEAP_TAGGING_LEVEL_ASYNC;
-    } else if (!is_debug_build) {
-        return true;
+  bool is_vendor_prog = starts_with(progname, "/vendor/") || starts_with(progname, "/apex/com.google.");
+  char prop_value[8];
+  if (is_vendor_prog && get_property_value("persist.arm64.memtag.vendor", prop_value, sizeof(prop_value))) {
+    if (strcmp("1", prop_value) == 0) {
+      *level = M_HEAP_TAGGING_LEVEL_ASYNC;
+      return true;
     }
   }
 
